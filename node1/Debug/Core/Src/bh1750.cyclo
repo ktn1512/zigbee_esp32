@@ -1,0 +1,5 @@
+../Core/Src/bh1750.c:13:17:BH1750_GetDelay	3
+../Core/Src/bh1750.c:24:26:BH1750_WriteCmd	1
+../Core/Src/bh1750.c:29:19:BH1750_Init	3
+../Core/Src/bh1750.c:51:19:BH1750_SetMode	1
+../Core/Src/bh1750.c:57:19:BH1750_ReadLux	6

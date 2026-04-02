@@ -1,0 +1,5 @@
+../Core/Src/bh1750.c:13:17:BH1750_GetDelay	16	static
+../Core/Src/bh1750.c:24:26:BH1750_WriteCmd	24	static
+../Core/Src/bh1750.c:29:19:BH1750_Init	24	static
+../Core/Src/bh1750.c:51:19:BH1750_SetMode	16	static
+../Core/Src/bh1750.c:57:19:BH1750_ReadLux	32	static
