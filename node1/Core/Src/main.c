@@ -33,16 +33,33 @@
 #define RX_BUF_SIZE 64
 #define NODE_ID "NODE1"   // đổi NODE2 cho board còn lại
 
+#define LED1_PORT GPIOA
+#define LED1_PIN GPIO_PIN_3
+
+#define LED2_PORT GPIOA
+#define LED2_PIN GPIO_PIN_5
+
+#define FAN1_PORT GPIOC
+#define FAN1_PIN  GPIO_PIN_13
+
+#define FAN2_PORT GPIOC
+#define FAN2_PIN  GPIO_PIN_14
+
+#define TEMP_ON  30.0
+#define TEMP_OFF 26.0
+
 uint8_t rx_buf[RX_BUF_SIZE];
 uint8_t rx_char;
 
 volatile uint16_t rx_len = 0;
 volatile uint8_t rx_flag = 0;
 
-BH1750_HandleTypeDef bh;
-DHT11_HandleTypeDef dht;
+BH1750_HandleTypeDef bh1, bh2;
+DHT11_HandleTypeDef dht1, dht2;
 
-float temp, hum, lux;
+float temp1, hum1, lux1;
+float temp2, hum2, lux2;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -82,65 +99,129 @@ void Process_Data(void);
 void Send_Data(void) {
 	char msg[100];
 
-	if (DHT11_Read(&dht, &temp, &hum) != HAL_OK) {
-		sprintf(msg, "%s:DHT_ERROR\r\n", NODE_ID);
+	if (DHT11_Read(&dht1, &temp1, &hum1) != HAL_OK) {
+		sprintf(msg, "%s:1:DHT_ERROR\r\n", NODE_ID);
 		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 		return;
 	}
 
-	if (BH1750_ReadLux(&bh, &lux) != HAL_OK) {
-		sprintf(msg, "%s:BH1750_ERROR\r\n", NODE_ID);
+	if (BH1750_ReadLux(&bh1, &lux1) != HAL_OK) {
+		sprintf(msg, "%s:1:BH1750_ERROR\r\n", NODE_ID);
 		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 		return;
 	}
 
-	sprintf(msg, "%s:TEMP:%.1f\r\n", NODE_ID, temp);
+	sprintf(msg, "%s:1:TEMP:%.1f\r\n", NODE_ID, temp1);
 	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 
-	sprintf(msg, "%s:HUMID:%.1f\r\n", NODE_ID, hum);
+	sprintf(msg, "%s:1:HUMID:%.1f\r\n", NODE_ID, hum1);
 	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 
-	sprintf(msg, "%s:LUX:%.1f\r\n", NODE_ID, lux);
+	sprintf(msg, "%s:1:LUX:%.1f\r\n", NODE_ID, lux1);
 	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 
+	if (DHT11_Read(&dht2, &temp2, &hum2) != HAL_OK) {
+		sprintf(msg, "%s:2:DHT_ERROR\r\n", NODE_ID);
+		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
+		return;
+	}
+
+	if (BH1750_ReadLux(&bh2, &lux2) != HAL_OK) {
+		sprintf(msg, "%s:2:BH1750_ERROR\r\n", NODE_ID);
+		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
+		return;
+	}
+
+	sprintf(msg, "%s:2:TEMP:%.1f\r\n", NODE_ID, temp2);
+	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
+
+	sprintf(msg, "%s:2:HUMID:%.1f\r\n", NODE_ID, hum2);
+	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
+
+	sprintf(msg, "%s:2:LUX:%.1f\r\n", NODE_ID, lux2);
+	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 }
 
 void Process_Data(void) {
+
 	uint16_t n = rx_len;
-	if (n > RX_BUF_SIZE)
-		n = RX_BUF_SIZE;
-
-	// bỏ \r\n
-	while (n > 0 && (rx_buf[n - 1] == '\n' || rx_buf[n - 1] == '\r'))
-		n--;
-
-	// ❗ BỎ DATA RỖNG
-	if (n == 0) {
-		UART_Start_DMA();
-		return;
-	}
+	if (n >= RX_BUF_SIZE)
+		n = RX_BUF_SIZE - 1;
 
 	rx_buf[n] = '\0';
 
-	HAL_UART_Transmit(&huart1, (uint8_t*) "RX: ", 4, 100);
-	HAL_UART_Transmit(&huart1, rx_buf, n, 100);
-	HAL_UART_Transmit(&huart1, (uint8_t*) "\r\n", 2, 100);
+	char *saveptr_line;
+	char *line = strtok_r((char*) rx_buf, "\r\n", &saveptr_line);
 
-	// xử lý node
-	if (strstr((char*) rx_buf, NODE_ID) || strstr((char*) rx_buf, "ALL")) {
-		if (strstr((char*) rx_buf, "LED:ON")) {
-			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-		} else if (strstr((char*) rx_buf, "LED:OFF")) {
-			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+	while (line != NULL) {
+
+		char buf[64];
+		strncpy(buf, line, sizeof(buf) - 1);
+		buf[sizeof(buf) - 1] = '\0';
+
+		char *saveptr_token;
+
+		char *type = strtok_r(buf, ":", &saveptr_token);
+
+		// ===== CHECK FORMAT =====
+		if (type && strcmp(type, "CMD") == 0) {
+
+			char *id = strtok_r(NULL, ":", &saveptr_token);
+			char *node = strtok_r(NULL, ":", &saveptr_token);
+			char *group = strtok_r(NULL, ":", &saveptr_token);
+			char *cmd = strtok_r(NULL, ":", &saveptr_token);
+			char *value = strtok_r(NULL, ":", &saveptr_token);
+
+			if (id && node && group && cmd && value) {
+
+				// ===== HANDLE COMMAND =====
+				if (strcmp(node, NODE_ID) == 0 || strcmp(node, "ALL") == 0) {
+
+					if (strcmp(group, "1") == 0) {
+
+						if (strcmp(cmd, "LED") == 0) {
+							HAL_GPIO_WritePin(LED1_PORT, LED1_PIN,
+									strcmp(value, "ON") == 0 ?
+											GPIO_PIN_RESET : GPIO_PIN_SET);
+						} else if (strcmp(cmd, "FAN") == 0) {
+							HAL_GPIO_WritePin(FAN1_PORT, FAN1_PIN,
+									strcmp(value, "ON") == 0 ?
+											GPIO_PIN_RESET : GPIO_PIN_SET);
+						}
+					}
+
+					else if (strcmp(group, "2") == 0) {
+
+						if (strcmp(cmd, "LED") == 0) {
+							HAL_GPIO_WritePin(LED2_PORT, LED2_PIN,
+									strcmp(value, "ON") == 0 ?
+											GPIO_PIN_RESET : GPIO_PIN_SET);
+						} else if (strcmp(cmd, "FAN") == 0) {
+							HAL_GPIO_WritePin(FAN2_PORT, FAN2_PIN,
+									strcmp(value, "ON") == 0 ?
+											GPIO_PIN_RESET : GPIO_PIN_SET);
+						}
+					}
+				}
+
+				// ===== SEND ACK =====
+				char ack[32];
+				sprintf(ack, "ACK:%s:OK\r\n", id);
+				HAL_UART_Transmit(&huart1, (uint8_t*) ack, strlen(ack), 100);
+			}
 		}
+
+		// ===== NEXT LINE =====
+		line = strtok_r(NULL, "\r\n", &saveptr_line);
 	}
 }
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void UART_Start_DMA(void) {
-	memset(rx_buf, 0, RX_BUF_SIZE);  // ❗ thêm dòng này
+	memset(rx_buf, 0, RX_BUF_SIZE);
 
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, rx_buf, RX_BUF_SIZE);
 
@@ -185,11 +266,13 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start(&htim4);
 
-	// init sensor
-	BH1750_Init(&bh, &hi2c1, BH1750_ADDR_LOW);
-	DHT11_Init(&dht, GPIOB, GPIO_PIN_14, &htim4);
+// init sensor
+	BH1750_Init(&bh1, &hi2c1, BH1750_ADDR_LOW);
+	DHT11_Init(&dht1, GPIOB, GPIO_PIN_14, &htim4);
+	BH1750_Init(&bh2, &hi2c1, BH1750_ADDR_HIGH);
+	DHT11_Init(&dht2, GPIOB, GPIO_PIN_15, &htim4);
 
-	// start UART DMA
+// start UART DMA
 	UART_Start_DMA();
 	/* USER CODE END 2 */
 
@@ -387,28 +470,28 @@ static void MX_GPIO_Init(void) {
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOC_CLK_ENABLE();
 	__HAL_RCC_GPIOD_CLK_ENABLE();
-	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13 | GPIO_PIN_14, GPIO_PIN_SET);
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3 | GPIO_PIN_5, GPIO_PIN_SET);
 
-	/*Configure GPIO pin : PC13 */
-	GPIO_InitStruct.Pin = GPIO_PIN_13;
+	/*Configure GPIO pins : PC13 PC14 */
+	GPIO_InitStruct.Pin = GPIO_PIN_13 | GPIO_PIN_14;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : PB14 */
-	GPIO_InitStruct.Pin = GPIO_PIN_14;
+	/*Configure GPIO pins : PA3 PA5 */
+	GPIO_InitStruct.Pin = GPIO_PIN_3 | GPIO_PIN_5;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 	/* USER CODE BEGIN MX_GPIO_Init_2 */
 
