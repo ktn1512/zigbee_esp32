@@ -1,0 +1,5 @@
+../Core/Src/acs712.c:12:17:ACS712_ReadADC	1
+../Core/Src/acs712.c:21:6:ACS712_Init	1
+../Core/Src/acs712.c:28:6:ACS712_Calibrate	2
+../Core/Src/acs712.c:41:7:ACS712_ReadCurrent	4
+../Core/Src/acs712.c:78:7:ACS712_CalcPower	1
