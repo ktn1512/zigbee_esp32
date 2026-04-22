@@ -64,7 +64,7 @@ unsigned long delayOff = 10000;
 unsigned long timeoutNode1 = 2000;
 
 float luxOn = 30;
-float luxOff = 150;
+float luxOff = 1000;
 
 float fanOnTemp = 23;
 float fanOffTemp = 20;

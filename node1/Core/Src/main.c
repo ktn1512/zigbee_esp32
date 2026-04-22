@@ -99,47 +99,45 @@ void Process_Data(void);
 void Send_Data(void) {
 	char msg[100];
 
+	// ================= ROOM 1 =================
 	if (DHT11_Read(&dht1, &temp1, &hum1) != HAL_OK) {
 		sprintf(msg, "%s:1:DHT_ERROR\r\n", NODE_ID);
 		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-		return;
+	} else {
+		sprintf(msg, "%s:1:TEMP:%.1f\r\n", NODE_ID, temp1);
+		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
+
+		sprintf(msg, "%s:1:HUMID:%.1f\r\n", NODE_ID, hum1);
+		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 	}
 
 	if (BH1750_ReadLux(&bh1, &lux1) != HAL_OK) {
 		sprintf(msg, "%s:1:BH1750_ERROR\r\n", NODE_ID);
 		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-		return;
+	} else {
+		sprintf(msg, "%s:1:LUX:%.1f\r\n", NODE_ID, lux1);
+		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 	}
 
-	sprintf(msg, "%s:1:TEMP:%.1f\r\n", NODE_ID, temp1);
-	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-
-	sprintf(msg, "%s:1:HUMID:%.1f\r\n", NODE_ID, hum1);
-	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-
-	sprintf(msg, "%s:1:LUX:%.1f\r\n", NODE_ID, lux1);
-	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-
+	// ================= ROOM 2 =================
 	if (DHT11_Read(&dht2, &temp2, &hum2) != HAL_OK) {
 		sprintf(msg, "%s:2:DHT_ERROR\r\n", NODE_ID);
 		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-		return;
+	} else {
+		sprintf(msg, "%s:2:TEMP:%.1f\r\n", NODE_ID, temp2);
+		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
+
+		sprintf(msg, "%s:2:HUMID:%.1f\r\n", NODE_ID, hum2);
+		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 	}
 
 	if (BH1750_ReadLux(&bh2, &lux2) != HAL_OK) {
 		sprintf(msg, "%s:2:BH1750_ERROR\r\n", NODE_ID);
 		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-		return;
+	} else {
+		sprintf(msg, "%s:2:LUX:%.1f\r\n", NODE_ID, lux2);
+		HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 	}
-
-	sprintf(msg, "%s:2:TEMP:%.1f\r\n", NODE_ID, temp2);
-	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-
-	sprintf(msg, "%s:2:HUMID:%.1f\r\n", NODE_ID, hum2);
-	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
-
-	sprintf(msg, "%s:2:LUX:%.1f\r\n", NODE_ID, lux2);
-	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 }
 
 void Process_Data(void) {
